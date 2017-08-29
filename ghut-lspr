@@ -1,0 +1,53 @@
+#!/bin/sh
+
+set -e -u
+
+function usage {
+  local prog=${0##*/}
+  cat <<-EOF
+	Lists your open and assigned pull requests.
+	
+	usage: $prog -t <github_token> [-o <organization>]
+	EOF
+}
+
+function croak {
+  local ex=$1; shift
+  printf -- "$*\n"
+  exit $ex
+} >&2
+
+function gh_req {
+  : ${1:?}
+  curl -Ssf -u ":$token" -L https://api.github.com$1
+}
+
+function pr_url_title {
+  jq -r '.items | map("\(.pull_request.html_url)\t\(.title)") | .[]'
+}
+
+token=
+q_org=
+
+while getopts ho:t: name; do
+  case $name in
+    h) usage; exit 0 ;;
+    t) token="$OPTARG" ;;
+    o) q_org=+org:"$OPTARG" ;;
+    \?) usage; exit 1 ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+[[ -n $token ]] || { usage; exit 1; }
+
+user_out=$(gh_req /user)
+login=$(jq .login <<<"$user_out")
+
+my_prs_resp=$(gh_req "/search/issues?q=type:pr+state:open+author:$login$q_org")
+my_prs=$(pr_url_title <<<"$my_prs_resp")
+[[ -z $my_prs ]] || printf "opened by me:\n$my_prs\n\n"
+
+as_prs_req=$(gh_req "/search/issues?q=type:pr+state:open+assignee:$login$q_org")
+as_prs=$(pr_url_title <<<"$as_prs_req")
+[[ -z $as_prs ]] || printf "assigned to me:\n$as_prs\n"

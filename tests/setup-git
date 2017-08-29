@@ -1,0 +1,21 @@
+# set required git configuration
+export HOME=$(mktemp -d)
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+
+# set up the git remote
+github_dir=$(mktemp -d)
+repo_dir=$github_dir/foofork/barrepo
+mkdir -p $repo_dir
+function repo_git {
+  git --git-dir="$repo_dir/.git" "$@"
+}
+git init -q $repo_dir
+repo_git commit -q --allow-empty -minitial
+repo_git checkout -q --detach
+export github_fetch_base="file://$github_dir"
+
+# set up local repository::
+git_dir=$(mktemp -d)
+cd $git_dir
+git init -q .

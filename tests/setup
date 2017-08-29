@@ -1,0 +1,3 @@
+# temp dir in the test dir, so it's cleaned up at the test end
+export TMPDIR="$PWD/.tmp"
+mkdir -p $TMPDIR

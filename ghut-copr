@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set -e -u
+
+: ${github_fetch_base:=ssh://git@github.com}
+
+function usage {
+  local prog=${0##*/}
+  cat <<-EOF
+	Fetch a pull request head and store it in refs/pull/<fork>/<pr_num>/<revision>.
+	
+	<revision> is sequentially numbered local history of the PR starting from 1 and
+	incrementing with each additional fetch which introduces new commits.
+	
+	usage: $prog <pr_url>    - fetch and checkout pull request ref
+	       $prog ls          - list locally stored pull requests and their revisions
+	       $prog ls <pr_num> - list revisions for a single locally stored pull request
+	EOF
+}
+
+function list_prs {
+  git show-ref | cut -d' ' -f2 | grep '^refs/pull/' || :
+}
+
+function list_pr {
+  git show-ref | cut -d' ' -f2 | grep "^refs/pull/.*$1" || :
+}
+
+function fetch_pr {
+  local fork repo num
+  local revision_prefix
+  local last_revision last_revision_ref last_revision_head
+  local current_revision_ref
+  local fetch_head
+
+  read fork repo num <<<$(echo $1 | perl -pe 's|^https?://github.com/(.+?)/(.+?)/pull/(\d+).*|\1 \2 \3|')
+
+  revision_prefix="refs/pull/${fork}/${num}"
+  last_revision=$(git show-ref | cut -d' ' -f2 | sed -n  "s|^${revision_prefix}/\([0-9]\+\)$|\1|p" | sort -n | tail -n 1)
+
+  if [ -n "${last_revision}" ]; then
+    current_revision_ref="${revision_prefix}/$((${last_revision} + 1))"
+    last_revision_ref="${revision_prefix}/${last_revision}"
+    last_revision_head=$(git rev-parse ${last_revision_ref})
+  else
+    current_revision_ref="${revision_prefix}/1"
+  fi
+
+  git fetch -q $github_fetch_base/$fork/$repo refs/pull/$num/head
+  fetch_head=$(git rev-parse FETCH_HEAD)
+
+  if [[ -n "${last_revision_head:-}" && "${fetch_head}" = "${last_revision_head}" ]]; then
+    echo "no new revision for $1"
+    current_revision_ref="${last_revision_ref}"
+  else
+    git update-ref ${current_revision_ref} ${fetch_head}
+  fi
+  echo "checking out: ${current_revision_ref}"
+  git checkout -q "${current_revision_ref}"
+}
+
+if [ $# -lt 1 ]; then
+  usage
+  exit 1
+elif [ "$1" = '-h' ]; then
+  usage
+  exit 0
+elif [ "$1" = ls ]; then
+  if [ -n "${2:-}" ]; then
+    list_pr $2
+  else
+    list_prs
+  fi
+else
+  fetch_pr $1
+fi
