@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ $# -lt 1 ]; then
+    echo "usage: $0 remotename [branch]" >&2
+    exit 1
+fi
+
+remotename="$1"
+branch="$2"
+
+git branch -r --merged $branch | \
+    grep "$remotename" | \
+    egrep -v '(master|develop)' | \
+    perl -pe 's|.*?/(.*)|\1|' | \
+    xargs --no-run-if-empty git push "$remotename" --delete
+
+git branch --merged $branch | \
+    egrep -v '(master|develop|^\*)' | \
+    xargs --no-run-if-empty git branch -d
