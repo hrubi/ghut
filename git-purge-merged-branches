@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+set -eu
 
 if [ $# -lt 1 ]; then
     echo "usage: $0 remotename [branch]" >&2
@@ -6,14 +8,20 @@ if [ $# -lt 1 ]; then
 fi
 
 remotename="$1"
-branch="$2"
+branch="${2:-}"
 
-git branch -r --merged $branch | \
-    grep "$remotename" | \
-    egrep -v '(master|develop)' | \
-    perl -pe 's|.*?/(.*)|\1|' | \
-    xargs --no-run-if-empty git push "$remotename" --delete
+rem_branches=$(
+  git for-each-ref refs/remotes/"$remotename" --format='%(refname:lstrip=3)' --merged $branch | \
+  egrep -v '(master|develop)'
+)
+if [[ -n $rem_branches ]]; then
+  xargs git push "$remotename" --delete <<<"$rem_branches"
+fi
 
-git branch --merged $branch | \
-    egrep -v '(master|develop|^\*)' | \
-    xargs --no-run-if-empty git branch -d
+loc_branches=$(
+  git for-each-ref refs/heads --format='%(refname:lstrip=2)' --merged $branch | \
+  egrep -v '(master|develop)'
+)
+if [[ -n $loc_branches ]]; then
+  xargs git branch -d <<<"$loc_branches"
+fi
