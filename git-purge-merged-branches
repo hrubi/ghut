@@ -14,7 +14,7 @@ git fetch --prune "$remotename"
 
 rem_branches=$(
   git for-each-ref refs/remotes/"$remotename" --format='%(refname:lstrip=3)' --merged ${branch:+"$branch"} | \
-  grep -E -v '(master|develop)'
+  grep -E -v '(master|develop)' || :
 )
 if [[ -n $rem_branches ]]; then
   xargs git push "$remotename" --delete <<<"$rem_branches"
@@ -22,7 +22,7 @@ fi
 
 loc_branches=$(
   git for-each-ref refs/heads --format='%(refname:lstrip=2)' --merged ${branch:+"$branch"} | \
-  grep -E -v '(master|develop)'
+  grep -E -v '(master|develop)' || :
 )
 if [[ -n $loc_branches ]]; then
   xargs git branch -d <<<"$loc_branches"
