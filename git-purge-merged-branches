@@ -10,6 +10,8 @@ fi
 remotename="$1"
 branch="${2:-}"
 
+git fetch --prune "$remotename"
+
 rem_branches=$(
   git for-each-ref refs/remotes/"$remotename" --format='%(refname:lstrip=3)' --merged $branch | \
   egrep -v '(master|develop)'
